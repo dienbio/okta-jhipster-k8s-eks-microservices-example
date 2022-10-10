@@ -1,57 +1,44 @@
-#---------------------------------------------------------------
-# EKS cluster, worker nodes, security groups, IAM roles, K8s addons, etc.
-#---------------------------------------------------------------
-module "eks_blueprints" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.0.9"
+# ---------------------------------------------------------------------------------------------------------------------
+# MANAGED NODE GROUPS
+# ---------------------------------------------------------------------------------------------------------------------
 
-  cluster_name    = local.name
-  cluster_version = local.cluster_version
+module "aws_eks_managed_node_groups" {
+  source = "./modules/aws-eks-managed-node-groups"
 
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnets
+  for_each = var.managed_node_groups
 
-  managed_node_groups = {
-    node = {
-      node_group_name = "managed-ondemand"
-      instance_types  = local.instance_types
-      min_size        = 2
-      subnet_ids      = module.vpc.private_subnets
-    }
-  }
+  managed_ng = each.value
+  context    = local.node_group_context
 
-  tags = local.tags
+  depends_on = [kubernetes_config_map.aws_auth]
 }
 
-module "eks_blueprints_kubernetes_addons" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints//modules/kubernetes-addons?ref=v4.0.9"
+# # ---------------------------------------------------------------------------------------------------------------------
+# # SELF MANAGED NODE GROUPS
+# # ---------------------------------------------------------------------------------------------------------------------
 
-  eks_cluster_id       = module.eks_blueprints.eks_cluster_id
-  eks_cluster_endpoint = module.eks_blueprints.eks_cluster_endpoint
-  eks_oidc_provider    = module.eks_blueprints.oidc_provider
-  eks_cluster_version  = module.eks_blueprints.eks_cluster_version
+# module "aws_eks_self_managed_node_groups" {
+#   source = "./modules/aws-eks-self-managed-node-groups"
 
-  # EKS Managed Add-ons
-  enable_amazon_eks_vpc_cni    = true
-  enable_amazon_eks_coredns    = true
-  enable_amazon_eks_kube_proxy = true
+#   for_each = var.self_managed_node_groups
 
-  # K8S Add-ons
-  enable_aws_load_balancer_controller = true
-  enable_metrics_server               = true
-  enable_cluster_autoscaler           = true
-  enable_aws_cloudwatch_metrics       = false
+#   self_managed_ng = each.value
+#   context         = local.node_group_context
 
-  tags = local.tags
+#   depends_on = [kubernetes_config_map.aws_auth]
+# }
 
-}
+# # ---------------------------------------------------------------------------------------------------------------------
+# # FARGATE PROFILES
+# # ---------------------------------------------------------------------------------------------------------------------
 
-# To update local kubeconfig with new cluster details
-resource "null_resource" "kubeconfig" {
-  depends_on = [module.eks_blueprints_kubernetes_addons]
-  provisioner "local-exec" {
-    command = "aws eks --region ${local.region}  update-kubeconfig --name $AWS_CLUSTER_NAME"
-    environment = {
-      AWS_CLUSTER_NAME = local.name
-    }
-  }
-}
+# module "aws_eks_fargate_profiles" {
+#   source = "./modules/aws-eks-fargate-profiles"
+
+#   for_each = var.fargate_profiles
+
+#   fargate_profile = each.value
+#   context         = local.fargate_context
+
+#   depends_on = [kubernetes_config_map.aws_auth]
+# }
