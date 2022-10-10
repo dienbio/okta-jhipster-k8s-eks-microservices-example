@@ -46,7 +46,7 @@ spec:
               done
       containers:
         - name: store-app
-          image: dienbio/store:latest
+          image: dienbio/store
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: prod
